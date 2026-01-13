@@ -9,6 +9,9 @@ import threading
 import random
 import numpy as np
 
+# FIX: Import this to silence the "missing ScriptRunContext" warning
+from streamlit.runtime.scriptrunner import add_script_run_ctx
+
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="KINTO Live Monitor", page_icon="📡", layout="wide")
 
@@ -43,8 +46,8 @@ def on_message(client, userdata, msg):
 
 # 2. SENDER LOGIC (The "Device" Simulation)
 def run_simulation():
-    # Create a separate client for sending to avoid conflicts
-    sim_client = mqtt.Client()
+    # FIX: Explicitly use VERSION1 to handle the DeprecationWarning
+    sim_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
     try:
         sim_client.connect(BROKER, 1883, 60)
     except:
@@ -84,8 +87,13 @@ def run_simulation():
 if use_simulator:
     if not st.session_state.get("sim_active"):
         st.session_state["sim_active"] = True
+        
         # Start the thread
         t = threading.Thread(target=run_simulation, daemon=True)
+        
+        # FIX: Attach the Streamlit context to the thread
+        add_script_run_ctx(t)
+        
         t.start()
         st.sidebar.success("✅ Simulation Running")
 else:
@@ -93,7 +101,8 @@ else:
 
 # --- START MQTT LISTENER (ONCE) ---
 if "mqtt_client" not in st.session_state:
-    client = mqtt.Client(userdata=st.session_state["data_queue"])
+    # FIX: Explicitly use VERSION1 to handle the DeprecationWarning
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, userdata=st.session_state["data_queue"])
     client.on_connect = on_connect
     client.on_message = on_message
     
